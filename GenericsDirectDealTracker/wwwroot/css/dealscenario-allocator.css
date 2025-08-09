@@ -1,0 +1,32 @@
+﻿.allocation-grid {
+    min-height: 60vh;
+}
+
+.dropzone {
+    min-height: 260px;
+    border: 2px dashed var(--mud-palette-lines-default);
+    border-radius: 6px;
+    padding: 4px;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+    .dropzone.mud-drop-hover {
+        background-color: var(--mud-palette-primary-hover);
+        border-color: var(--mud-palette-primary);
+    }
+
+.draggable-card {
+    cursor: grab;
+}
+
+    .draggable-card:active {
+        cursor: grabbing;
+    }
+
+.unassigned-zone {
+    background-color: var(--mud-palette-surface);
+}
+
+.manufacturer-zone .dropzone {
+    background-color: var(--mud-palette-background-grey);
+}

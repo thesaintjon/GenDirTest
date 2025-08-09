@@ -1,73 +1,131 @@
-@page "/dealscenarioallocator"
-
 @using MudBlazor
-@using GenericsDirectDealTracker.Models
-@inject GenericsDirectDealTracker.Data.DealTrackerDbContext Db
-@using Microsoft.EntityFrameworkCore
+@using System.Collections.ObjectModel
+@inherits GenDirTest.Components.DealScenarioAllocatorBase
 
-<MudPaper Class="pa-4 d-flex flex-row mud-width-full mud-height-full">
-    <!-- Products Zone (Left) -->
-    <MudPaper Class="ma-2 pa-2 mud-width-25 mud-height-full">
-        <MudText Typo="Typo.h6">Products</MudText>
-        <MudDropZone T="DealScenarioDetail" Identifier="products" AllowReorder="true" ItemsSelector="@(item => item.Manufacturer == null)" ItemDropped="@((MudItemDropInfo<DealScenarioDetail> drop) => OnProductDropped(drop, null))">
-            <ItemRenderer Context="context">
-                <MudListItem T="string" Text="@((context.Product?.MoleculeName ?? "Unknown"))" />
-            </ItemRenderer>
-        </MudDropZone>
-        @if (DealScenarioDetails.Count == 0)
-        {
-            <MudText Typo="Typo.subtitle2" Color="Color.Error">No products found.</MudText>
-        }
-    </MudPaper>
+<MudPaper Class="pa-4 d-flex flex-column gap-4" Elevation="1">
+    <MudStack Row="true" AlignItems="center" Justify="space-between">
+        <MudText Typo="Typo.h5">Deal Scenario Allocation</MudText>
 
-    <!-- Manufacturer Zones -->
-    @if (Manufacturers.Count == 0)
+        <MudStack Row="true" Spacing="2" AlignItems="center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateScenario" Disabled="@IsBusy || ScenarioCreated">
+                @if (IsBusy && !ScenarioCreated)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="16" Class="mr-2" />
+                }
+                Create Scenario
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="@(!ScenarioCreated || IsBusy)" OnClick="SaveAllocations">
+                @if (IsSaving)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="16" Class="mr-2" />
+                }
+                Save Allocations
+            </MudButton>
+
+            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@(!ScenarioCreated || IsBusy)" OnClick="ResetAll">
+                Reset
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (ErrorMessage is not null)
     {
-        <MudText Typo="Typo.subtitle2" Color="Color.Error">No manufacturers found.</MudText>
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Dense="true" Class="mb-2">
+            @ErrorMessage
+        </MudAlert>
     }
-    else
-    {
-        @foreach (var manufacturer in Manufacturers)
-        {
-            <MudPaper Class="ma-2 pa-2 mud-width-25 mud-height-full d-flex flex-column">
-                <MudText Typo="Typo.h6">@manufacturer.ManufacturerName</MudText>
-                <MudText Typo="Typo.subtitle2">Total Value: @GetManufacturerTotal(manufacturer.Id):C</MudText>
-                <MudDropZone T="DealScenarioDetail" Identifier="@manufacturer.Id.ToString()" AllowReorder="true" ItemsSelector="@(item => item.Manufacturer?.Id == manufacturer.Id)" ItemDropped="@((MudItemDropInfo<DealScenarioDetail> drop) => OnProductDropped(drop, manufacturer))">
-                    <ItemRenderer Context="context">
-                        <MudListItem T="string" Text="@((context.Product?.MoleculeName ?? "Unknown"))" />
-                    </ItemRenderer>
-                </MudDropZone>
+
+    <MudGrid Class="allocation-grid">
+        <!-- Unassigned Products -->
+        <MudItem xs="12" sm="4" md="3">
+            <MudPaper Class="pa-2" Elevation="2">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.subtitle1">Unassigned Products (@Unassigned.Count)</MudText>
+                    <MudDivider Class="mb-2" />
+                    <MudDropZone T="DealScenarioDetail"
+                                 Items="Unassigned"
+                                 ZoneIdentifier="@UnassignedZoneId"
+                                 ItemDropped="OnItemDropped"
+                                 Class="dropzone unassigned-zone">
+                        <ChildContent>
+                            @if (Unassigned.Count == 0)
+                            {
+                                <MudText Class="text-disabled" Typo="Typo.caption">All products allocated</MudText>
+                            }
+                            else
+                            {
+                                @foreach (var item in Unassigned)
+                                {
+                                    <MudDraggable T="DealScenarioDetail" Item="item" Class="draggable-card">
+                                        <MudPaper Class="pa-2 mb-2" Elevation="1">
+                                            <MudText Typo="Typo.caption" Class="text-secondary">@item.ProductCode</MudText>
+                                            <MudText Typo="Typo.body2">@item.ProductName</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-right">
+                                                @FormatCurrency(item.Value)
+                                            </MudText>
+                                        </MudPaper>
+                                    </MudDraggable>
+                                }
+                            }
+                        </ChildContent>
+                    </MudDropZone>
+                </MudStack>
             </MudPaper>
-        }
-    }
+        </MudItem>
+
+        <!-- Manufacturer Zones -->
+        <MudItem xs="12" sm="8" md="9">
+            <MudGrid>
+                @foreach (var allocation in ManufacturerAllocations)
+                {
+                    <MudItem xs="12" sm="6" md="4" Class="mb-4">
+                        <MudPaper Class="pa-2 manufacturer-zone" Elevation="2">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Justify="space-between" AlignItems="center">
+                                    <MudText Typo="Typo.subtitle2">@allocation.Manufacturer.Name</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Primary">
+                                        @FormatCurrency(allocation.TotalValue)
+                                    </MudText>
+                                </MudStack>
+
+                                <MudDivider Class="mb-2" />
+
+                                <MudDropZone T="DealScenarioDetail"
+                                             Items="allocation.Items"
+                                             ZoneIdentifier="@allocation.Manufacturer.Id.ToString()"
+                                             ItemDropped="OnItemDropped"
+                                             Class="dropzone manufacturer-dropzone">
+                                    <ChildContent>
+                                        @if (allocation.Items.Count == 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="text-disabled">
+                                                Drag products here
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var item in allocation.Items)
+                                            {
+                                                <MudDraggable T="DealScenarioDetail" Item="item" Class="draggable-card">
+                                                    <MudPaper Class="pa-2 mb-2" Elevation="1">
+                                                        <MudText Typo="Typo.caption" Class="text-secondary">@item.ProductCode</MudText>
+                                                        <MudText Typo="Typo.body2">@item.ProductName</MudText>
+                                                        <MudText Typo="Typo.caption" Class="text-right">
+                                                            @FormatCurrency(item.Value)
+                                                        </MudText>
+                                                    </MudPaper>
+                                                </MudDraggable>
+                                            }
+                                        }
+                                    </ChildContent>
+                                </MudDropZone>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudItem>
+    </MudGrid>
+
 </MudPaper>
-
-@code {
-    private List<Manufacturer> Manufacturers = new();
-    private List<DealScenarioDetail> DealScenarioDetails = new();
-    private DealScenario CurrentScenario;
-
-    protected override async Task OnInitializedAsync()
-    {
-        Manufacturers = await Db.Manufacturers.ToListAsync();
-        var products = await Db.Products.ToListAsync();
-        CurrentScenario = new DealScenario { CreatedDate = DateTime.UtcNow };
-        DealScenarioDetails = products.Select(p => new DealScenarioDetail
-        {
-            Product = p,
-            ProductId = p.Id,
-            Value = p.Price ?? 0,
-            Manufacturer = null,
-            DealScenario = CurrentScenario
-        }).ToList();
-    }
-
-    private void OnProductDropped(MudItemDropInfo<DealScenarioDetail> dropInfo, Manufacturer? manufacturer)
-    {
-        dropInfo.Item.Manufacturer = manufacturer;
-        StateHasChanged();
-    }
-
-    private decimal GetManufacturerTotal(int manufacturerId)
-        => DealScenarioDetails.Where(d => d.Manufacturer?.Id == manufacturerId).Sum(d => d.Value ?? 0);
-}
