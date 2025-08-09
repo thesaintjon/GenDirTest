@@ -1,0 +1,73 @@
+@page "/dealscenarioallocator"
+
+@using MudBlazor
+@using GenericsDirectDealTracker.Models
+@inject GenericsDirectDealTracker.Data.DealTrackerDbContext Db
+@using Microsoft.EntityFrameworkCore
+
+<MudPaper Class="pa-4 d-flex flex-row mud-width-full mud-height-full">
+    <!-- Products Zone (Left) -->
+    <MudPaper Class="ma-2 pa-2 mud-width-25 mud-height-full">
+        <MudText Typo="Typo.h6">Products</MudText>
+        <MudDropZone T="DealScenarioDetail" Identifier="products" AllowReorder="true" ItemsSelector="@(item => item.Manufacturer == null)" ItemDropped="@((MudItemDropInfo<DealScenarioDetail> drop) => OnProductDropped(drop, null))">
+            <ItemRenderer Context="context">
+                <MudListItem T="string" Text="@((context.Product?.MoleculeName ?? "Unknown"))" />
+            </ItemRenderer>
+        </MudDropZone>
+        @if (DealScenarioDetails.Count == 0)
+        {
+            <MudText Typo="Typo.subtitle2" Color="Color.Error">No products found.</MudText>
+        }
+    </MudPaper>
+
+    <!-- Manufacturer Zones -->
+    @if (Manufacturers.Count == 0)
+    {
+        <MudText Typo="Typo.subtitle2" Color="Color.Error">No manufacturers found.</MudText>
+    }
+    else
+    {
+        @foreach (var manufacturer in Manufacturers)
+        {
+            <MudPaper Class="ma-2 pa-2 mud-width-25 mud-height-full d-flex flex-column">
+                <MudText Typo="Typo.h6">@manufacturer.ManufacturerName</MudText>
+                <MudText Typo="Typo.subtitle2">Total Value: @GetManufacturerTotal(manufacturer.Id):C</MudText>
+                <MudDropZone T="DealScenarioDetail" Identifier="@manufacturer.Id.ToString()" AllowReorder="true" ItemsSelector="@(item => item.Manufacturer?.Id == manufacturer.Id)" ItemDropped="@((MudItemDropInfo<DealScenarioDetail> drop) => OnProductDropped(drop, manufacturer))">
+                    <ItemRenderer Context="context">
+                        <MudListItem T="string" Text="@((context.Product?.MoleculeName ?? "Unknown"))" />
+                    </ItemRenderer>
+                </MudDropZone>
+            </MudPaper>
+        }
+    }
+</MudPaper>
+
+@code {
+    private List<Manufacturer> Manufacturers = new();
+    private List<DealScenarioDetail> DealScenarioDetails = new();
+    private DealScenario CurrentScenario;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Manufacturers = await Db.Manufacturers.ToListAsync();
+        var products = await Db.Products.ToListAsync();
+        CurrentScenario = new DealScenario { CreatedDate = DateTime.UtcNow };
+        DealScenarioDetails = products.Select(p => new DealScenarioDetail
+        {
+            Product = p,
+            ProductId = p.Id,
+            Value = p.Price ?? 0,
+            Manufacturer = null,
+            DealScenario = CurrentScenario
+        }).ToList();
+    }
+
+    private void OnProductDropped(MudItemDropInfo<DealScenarioDetail> dropInfo, Manufacturer? manufacturer)
+    {
+        dropInfo.Item.Manufacturer = manufacturer;
+        StateHasChanged();
+    }
+
+    private decimal GetManufacturerTotal(int manufacturerId)
+        => DealScenarioDetails.Where(d => d.Manufacturer?.Id == manufacturerId).Sum(d => d.Value ?? 0);
+}

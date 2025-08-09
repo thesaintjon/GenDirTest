@@ -1,0 +1,22 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+
+<MudLayout>
+    <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini" Elevation="1" Anchor="Anchor.Start">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        <MudAppBar Elevation="1">
+            <MudText Typo="Typo.h6">Generics Direct Deal Tracker</MudText>
+        </MudAppBar>
+        <div class="content px-4">
+            @Body
+        </div>
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
