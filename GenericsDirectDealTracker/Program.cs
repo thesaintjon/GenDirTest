@@ -1,5 +1,6 @@
 using GenericsDirectDealTracker.Components;
 using GenericsDirectDealTracker.Data;
+using GenericsDirectDealTracker.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using MudBlazor.Services;
@@ -21,6 +22,9 @@ builder.Services.AddDbContext<DealTrackerDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<DealTrackerDbContext>()
     .AddDefaultTokenProviders();
+
+// Add Deal Scenario Service
+builder.Services.AddScoped<IDealScenarioService, DealScenarioServiceMock>();
 
 var app = builder.Build();
 

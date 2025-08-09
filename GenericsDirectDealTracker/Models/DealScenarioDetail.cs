@@ -12,6 +12,7 @@ namespace GenericsDirectDealTracker.Models
         public int ProductId { get; set; }
         [ForeignKey("ProductId")]
         public Product? Product { get; set; }
+        public int? ManufacturerId { get; set; }
         [ForeignKey("ManufacturerId")]
         public Manufacturer? Manufacturer { get; set; }
         public decimal? Value { get; set; }
